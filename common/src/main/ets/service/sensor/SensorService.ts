@@ -19,7 +19,6 @@ import motion from '@ohos.motion';
 import lazy { CameraAppCapability } from '../../camera/CameraAppCapability';
 import lazy { GlobalContext } from '../../utils/GlobalContext';
 import { BusinessError } from '@kit.BasicServicesKit';
-import { WindowDirection } from '../../utils/WindowDirection';
 import { DeviceInfo } from '../../component/deviceinfo/DeviceInfo';
 
 /* instrument ignore file */
@@ -54,6 +53,17 @@ export interface MotionRollCallback {
 
 export interface SensorMagneticCallback {
   onMagneticSensor(data: sensor.MagneticFieldResponse): void
+}
+
+/*
+ * motion模块TYPE_ROTATE上报的旋转档位, 0/1/2/3 分别表示界面需要旋转 0°/90°/180°/270°。
+ * OpenHarmony上没有motion模块, 由SensorService根据加速度计角度合成同样语义的档位。
+ */
+const enum MotionRotate {
+  ROTATE_0 = 0,
+  ROTATE_90 = 1,
+  ROTATE_180 = 2,
+  ROTATE_270 = 3,
 }
 
 const TAG: string = 'SensorService';
@@ -151,18 +161,24 @@ export class SensorService {
     normalized = (normalized + 180) % 360;
     return normalized - 180;
   }
+
 // -90 0 90 180 270
-  // 从motion旋转角度转换成应用内定义的四个方向
+  // 把重力角度转换成motion模块TYPE_ROTATE的旋转档位
+  // 注意: 返回值是motion档位(MotionRotate: 0/1/2/3 => 界面旋转0°/90°/180°/270°),
+  // 不是WindowDirection —— 调用方DirectionFunction.onMotionSensor()会再做一次
+  // 档位到WindowDirection的映射。这里以前直接返回WindowDirection, 经过那次二次映射后
+  // 方向被镜像(竖屏得到LEFT即旋转270°而不是TOP即0°, 横屏得到BOTTOM而不是RIGHT),
+  // 导致取景界面控件和拍照JPEG方向都错90°。
   private motionMappingDirection(data: number): number {
     data = this.sensorToViewRotation(data);
     if (data >= -135 && data < -45) {
-      return DeviceInfo.isUis7885() ? WindowDirection.TOP : WindowDirection.LEFT;
+      return DeviceInfo.isUis7885() ? MotionRotate.ROTATE_180 : MotionRotate.ROTATE_270;
     } else if (data >= -45 && data < 45) {
-      return DeviceInfo.isUis7885() ? WindowDirection.RIGHT : WindowDirection.BOTTOM;
+      return DeviceInfo.isUis7885() ? MotionRotate.ROTATE_90 : MotionRotate.ROTATE_0;
     } else if (data >= 45 && data < 135) {
-      return DeviceInfo.isUis7885() ? WindowDirection.LEFT : WindowDirection.TOP;
+      return DeviceInfo.isUis7885() ? MotionRotate.ROTATE_0 : MotionRotate.ROTATE_90;
     } else {
-      return DeviceInfo.isUis7885() ? WindowDirection.BOTTOM : WindowDirection.RIGHT;
+      return DeviceInfo.isUis7885() ? MotionRotate.ROTATE_270 : MotionRotate.ROTATE_180;
     }
   }
   public unRegisterGravityListener(hashCode: string): void {

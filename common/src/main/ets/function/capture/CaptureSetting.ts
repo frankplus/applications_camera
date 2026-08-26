@@ -111,13 +111,21 @@ function getFullScreenRotation(orientation: display.Orientation, position: camer
 function getLockStatusRotation(position: camera.CameraPosition): camera.ImageRotation {
   const currentDirection: WindowDirection = getStates().get<WindowDirection>('contextReducer', 'direction');
   HiLog.i(TAG, `getPhoneRotation currentDirection: ${currentDirection}`);
+  /*
+   * 这里下发的不是界面旋转角, 而是设备相对自然方向的顺时针旋转角d:
+   * camera_service的HStreamCapture::SetRotation()会再加上镜头的sensorOrientation
+   * (rotation = sensorOrientation + 本函数返回值), 因此后摄需要下发 +d, 前摄需要下发 -d
+   * (与Android的 (sensorOrientation ± deviceOrientation) 约定一致)。
+   * LEFT/RIGHT两个横屏方向原本前后摄下发了同一个值(都是前摄的 -d), 后摄因此差180°,
+   * 竖屏/倒竖屏因为 d 与 -d 相等(0°/180°)才碰巧正确。
+   */
   switch (currentDirection) {
     case WindowDirection.LEFT:
       return position === camera.CameraPosition.CAMERA_POSITION_FRONT ? camera.ImageRotation.ROTATION_270 :
-        (camera.ImageRotation.ROTATION_270);
+        (camera.ImageRotation.ROTATION_90);
     case WindowDirection.RIGHT:
       return position === camera.CameraPosition.CAMERA_POSITION_FRONT ? camera.ImageRotation.ROTATION_90 :
-        (camera.ImageRotation.ROTATION_90);
+        (camera.ImageRotation.ROTATION_270);
     case WindowDirection.BOTTOM:
       return camera.ImageRotation.ROTATION_180;
     default:
