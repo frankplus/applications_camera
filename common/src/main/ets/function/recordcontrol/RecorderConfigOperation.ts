@@ -29,10 +29,29 @@ import lazy { getStates } from '../../redux';
 import lazy { ModeType } from '../../mode/ModeType';
 import lazy { BlurAnimateUtil } from '../../utils/BlurAnimateUtil';
 import lazy { PcInfo } from '../../component/deviceinfo/PcInfo';
+import lazy { SystemParamService } from '../../service/systemparameter/SystemParamService';
 
 const TAG: string = 'RecorderConfigOperation';
 
 export class RecorderConfigOperation {
+  /**
+   * VIDEO_SOURCE_TYPE_SURFACE_ES (1) needs a camera HAL that hands out an
+   * encoded stream, which development boards ('default' device type) have
+   * and phones do not; there the recorder must take YUV (0) and encode it.
+   * A product whose device type is 'default' but whose camera only delivers
+   * YUV says so with const.oniro.camera.video_source=yuv.
+   */
+  private static getVideoSourceType(isDefault: boolean): number {
+    const forced: string = SystemParamService.getInstance().get(false, 'const.oniro.camera.video_source', '');
+    if (forced === 'yuv') {
+      return 0;
+    }
+    if (forced === 'es') {
+      return 1;
+    }
+    return isDefault ? 1 : 0;
+  }
+
   /* instrument ignore file */
   private static readonly AUDIO_BITRATE = 192000;
   private static readonly AUDIO_CHANNELS = DeviceInfo.isTv() ? 1 : 2;
@@ -73,7 +92,7 @@ export class RecorderConfigOperation {
       //@ts-ignore
       audioSourceType: DeviceInfo.isTv() ? media.AudioSourceType.AUDIO_SOURCE_TYPE_VOICE_COMMUNICATION :
       media.AudioSourceType.AUDIO_SOURCE_TYPE_CAMCORDER,
-      videoSourceType: isDefault ? 1 : 0,
+      videoSourceType: RecorderConfigOperation.getVideoSourceType(isDefault),
       profile: this.getRecorderProfile(profile, frameRate, videoCodec, isHdr),
       url: '',
       rotation: this.getJpegRotation(),
@@ -124,7 +143,7 @@ export class RecorderConfigOperation {
       //@ts-ignore
       audioSourceType: DeviceInfo.isTv() ? media.AudioSourceType.AUDIO_SOURCE_TYPE_VOICE_COMMUNICATION :
       media.AudioSourceType.AUDIO_SOURCE_TYPE_CAMCORDER,
-      videoSourceType: isDefault ? 1 : 0,
+      videoSourceType: RecorderConfigOperation.getVideoSourceType(isDefault),
       profile: this.getPreviewRecorderProfile(profile, frameRate, videoCodec),
       url: '',
       rotation: this.getJpegRotation()
@@ -164,7 +183,7 @@ export class RecorderConfigOperation {
       //@ts-ignore
       audioSourceType: DeviceInfo.isTv() ? media.AudioSourceType.AUDIO_SOURCE_TYPE_VOICE_COMMUNICATION :
       media.AudioSourceType.AUDIO_SOURCE_TYPE_CAMCORDER,
-      videoSourceType: isDefault ? 1 : 0,
+      videoSourceType: RecorderConfigOperation.getVideoSourceType(isDefault),
       profile: this.getTimelapseRecorderProfile(profile, frameRate, videoCodec, isHdr),
       url: '',
       rotation: this.getJpegRotation()
