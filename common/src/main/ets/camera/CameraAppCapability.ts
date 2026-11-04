@@ -38,6 +38,7 @@ export class CameraAppCapability extends CapabilityInterface {
   private mCapabilityVersion: string = 'v0'; // v0代表走底层能力上报路径CameraPlatformCapability
   private mCameraProfilesJsonUtil: CapabilityInterface;
   private mCameraDevicesPC: camera.CameraDevice[] = [];
+  private mCameraDevices: camera.CameraDevice[] = [];
 
   private constructor() {
     super();
@@ -76,6 +77,24 @@ export class CameraAppCapability extends CapabilityInterface {
       return this.mCameraDevicesPC[0].cameraPosition;
     }
     return camera.CameraPosition.CAMERA_POSITION_UNSPECIFIED;
+  }
+
+  /**
+   * Sensor orientation of the first camera at this position, or -1 when the
+   * camera manager has none.  Queried once and cached.
+   */
+  public getCameraOrientation(position: camera.CameraPosition): number {
+    if (this.mCameraDevices.length === 0) {
+      try {
+        const cameraManager = camera.getCameraManager(ContextManager.getInstance().getAbilityStageContext());
+        this.mCameraDevices = cameraManager.getSupportedCameras();
+      } catch (err) {
+        HiLog.e(TAG, `getCameraOrientation getSupportedCameras failed: ${err}`);
+        return -1;
+      }
+    }
+    const device = this.mCameraDevices.find((d: camera.CameraDevice) => d.cameraPosition === position);
+    return device ? device.cameraOrientation : -1;
   }
 
   // 获取PC缓存的镜头角度，勿重复执行耗时操作

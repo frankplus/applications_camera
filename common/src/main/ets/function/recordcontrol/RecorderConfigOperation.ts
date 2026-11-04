@@ -95,7 +95,7 @@ export class RecorderConfigOperation {
       videoSourceType: RecorderConfigOperation.getVideoSourceType(isDefault),
       profile: this.getRecorderProfile(profile, frameRate, videoCodec, isHdr),
       url: '',
-      rotation: this.getJpegRotation(),
+      rotation: this.getVideoRotation(),
       // @ts-ignore
       metaSourceTypes: RecorderConfigOperation.VIDEO_META_TYPES,
       metadata: {
@@ -432,6 +432,52 @@ export class RecorderConfigOperation {
       default:
         return <number> camera.ImageRotation.ROTATION_0;
     }
+  }
+
+  /**
+   * Orientation hint for a recording on a phone held in any of the four
+   * directions: unlike a photo, where camera_service adds the lens's sensor
+   * orientation itself, the recorder writes this value into the file as is,
+   * so it must be the full Android-style angle -- sensorOrientation + d for a
+   * back lens and sensorOrientation - d for a front one, d being the device's
+   * clockwise rotation from its natural orientation.
+   *
+   * getJpegRotation's phone table assumes both lenses are mounted at 270
+   * degrees; on a back lens mounted at 90 (the Volla phones) portrait videos
+   * came out upside down.  Other device types, and mirrored front video,
+   * keep the table.
+   */
+  private static getVideoRotation(): camera.ImageRotation {
+    const state = getStates();
+    const position: camera.CameraPosition = state.get<camera.CameraPosition>('cameraReducer', 'cameraPosition');
+    const isVideoMirror: boolean = FeatureManager.getInstance().getFunction(FunctionId.MIRROR).getValue();
+    const windowStatus = WindowService.getInstance().getWindowStatus();
+    const isFront: boolean = position === camera.CameraPosition.CAMERA_POSITION_FRONT;
+    const sensor: number = CameraAppCapability.getInstance().getCameraOrientation(position);
+    if (sensor < 0 || (isFront && isVideoMirror) || DeviceInfo.isTablet() || DeviceInfo.isPc() ||
+      DeviceInfo.isTv() || state.get<boolean>('collapsReducer', 'isVdeCollapsed') ||
+      state.get<boolean>('collapsReducer', 'isShowLandscape') ||
+      windowStatus === window.WindowStatusType.FLOATING || windowStatus === window.WindowStatusType.SPLIT_SCREEN) {
+      return this.getJpegRotation();
+    }
+    const direction: WindowDirection = state.get<WindowDirection>('contextReducer', 'direction');
+    let d: number = 0;
+    switch (direction) {
+      case WindowDirection.LEFT:
+        d = 90;
+        break;
+      case WindowDirection.RIGHT:
+        d = 270;
+        break;
+      case WindowDirection.BOTTOM:
+        d = 180;
+        break;
+      default:
+        d = 0;
+    }
+    const rotation: number = isFront ? (sensor - d + 360) % 360 : (sensor + d) % 360;
+    HiLog.i(TAG, `getVideoRotation direction: ${direction}, sensor: ${sensor}, front: ${isFront}, -> ${rotation}`);
+    return rotation as camera.ImageRotation;
   }
 
   /**
