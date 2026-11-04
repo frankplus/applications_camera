@@ -1525,6 +1525,8 @@ export class CameraService {
   }
 
   public enableMacro(enable: boolean): void {
+    // Remembered for the sessions rebuilt later (mode or camera switch).
+    SessionWrap.sMacroWanted = enable;
     this.mSession?.enableMacro(enable);
   }
 

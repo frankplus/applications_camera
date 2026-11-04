@@ -76,6 +76,8 @@ export default class SessionWrap {
   private mZoomRatioRange: number[] | undefined;
   private mHasFlash: boolean | undefined = true;
   private mIsMacroSupported: boolean = false;
+  // The user's macro toggle (zoom bar), re-applied to every committed session.
+  public static sMacroWanted: boolean = false;
   private mIsEffectSuggestionSupported: boolean = false;
   private mIsSceneFeatureSupported: boolean = false;
   private mZoomPointInfo: ZoomPointInfo | undefined;
@@ -316,6 +318,9 @@ export default class SessionWrap {
     // }
     // this.mHasFlash = this.mSession.hasFlash();
     this.mZoomRatioRange = this.mSession.getZoomRatioRange();
+    if (SessionWrap.sMacroWanted && !isPicker && this.mSession.isMacroSupported()) {
+      this.enableMacro(true);
+    }
     // this.mZoomPointInfo = this.mSession.getZoomPointInfo();
     // this.handleScenesFeatureOn(tagMessage.mode);
     // this.handleMacroAbilityOn(tagMessage.mode);

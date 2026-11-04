@@ -43,6 +43,7 @@ import lazy { CameraAppCapability } from '../../camera/CameraAppCapability';
 import lazy { FeatureManager } from '../core/FeatureManager';
 import lazy { OutputType } from '../outputswitcher/OutputType';
 import lazy { CameraProxy } from '../../camera/uithread/CameraProxy';
+import lazy { SystemParamService } from '../../service/systemparameter/SystemParamService';
 import lazy { DeviceInfo } from '../../component/deviceinfo/DeviceInfo';
 import lazy { JSON } from '@kit.ArkTS';
 import lazy { StoreManager } from '../../worker/StoreManager';
@@ -156,6 +157,12 @@ export struct RouletteZoomView {
   @State quickZoomAlpha: number = 1; // 快捷变焦-选中圆透明度
   @State mQuickZoomOverColor: number = 0; // 快捷变焦整体叠加颜色
   @State superMacroEnable: boolean = false; // 超级微距特性是否使能状态
+  // Oniro: a device with a macro lens behind the back camera
+  // (const.oniro.camera.back_macro) gets a toggle at the end of the quick
+  // zoom bar; it drives the session's macro control.
+  @State oniroMacroOn: boolean = false;
+  private readonly oniroHasMacroLens: boolean =
+    SystemParamService.getInstance().get(false, 'const.oniro.camera.back_macro', '') !== '';
   // RouletteZoom轮盘变焦变量
   private curZoomAngle: number = 0; // 当前焦距对应角度
   private mNodeController: ZoomNodeController | undefined = undefined;
@@ -1512,8 +1519,11 @@ export struct RouletteZoomView {
       ForEach(this.quickZoomValArr, (item: number, index: number = 0) => {
         this.quickForEachItem(item, index);
       })
+      if (this.isMacroChipShown()) {
+        this.oniroMacroChip();
+      }
     }
-    .width(this.quickZoomValArrLength * (32 + 8))
+    .width((this.quickZoomValArrLength + (this.isMacroChipShown() ? 1 : 0)) * (32 + 8))
     .height(40)
     .borderRadius(this.isShowSubScreenRadius ? 0 : 21)
     .margin({ bottom: this.getMarginBottom() })
@@ -1526,6 +1536,39 @@ export struct RouletteZoomView {
     .key(ComponentIdKeys.QUICK_ZOOM_BAR)
     .enabled(this.state.uiEnable)
     .accessibilityLevel(CommonConstants.ACCESSIBILITY_LEVEL_NO)
+  }
+
+  private isMacroChipShown(): boolean {
+    return this.oniroHasMacroLens && !GlobalContext.get().getIsPicker() &&
+      this.state.cameraPosition === camera.CameraPosition.CAMERA_POSITION_BACK;
+  }
+
+  @Builder
+  oniroMacroChip(): void {
+    Stack() {
+      Circle()
+        .width(QUICK_ZOOM_ITEM_SIZE)
+        .height(QUICK_ZOOM_ITEM_SIZE)
+        .fill(this.oniroMacroOn ? '#ffffffff' : '#00000000')
+      Text('\u{1F33C}') // blossom: the usual macro glyph
+        .fontSize('15vp')
+        .opacity(this.oniroMacroOn ? 1 : 0.7)
+        .rotate({
+          angle: this.rotateAngle +
+            (this.isShowSemiCollapsed ?
+              -180 : (this.isShowLandscape || DeviceInfo.isTablet() || this.isShowTricollaps) ? -90 : 0)
+        })
+    }
+    .width(QUICK_ZOOM_ITEM_SIZE)
+    .height(QUICK_ZOOM_ITEM_SIZE)
+    .position({ x: 4 + this.quickZoomValArrLength * (32 + 8), y: QUICK_ZOOM_POSITION_Y })
+    .onClick((): void => {
+      this.oniroMacroOn = !this.oniroMacroOn;
+      HiLog.i(TAG, `macro lens ${this.oniroMacroOn ? 'on' : 'off'}`);
+      CameraProxy.getInstance().enableMacro(this.oniroMacroOn);
+    })
+    .key('ONIRO_MACRO_TOGGLE')
+    .accessibilityText(ResGetter.getStringSafe(this.oniroMacroOn ? 'Macro on' : 'Macro off'))
   }
 
   private getQuickZoomVisibility(): Visibility {
