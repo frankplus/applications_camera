@@ -121,8 +121,6 @@ export default class PhotoOutputWrap extends CameraOutput {
     }
     if (LOCATION_MESSAGE.location) {
       setting.location = LOCATION_MESSAGE.location;
-    } else {
-      setting.location = { latitude: 30.5225, longitude: 114.5092, altitude: 0 }
     }
     HiLog.i(TAG, `capture begin, setting: ${simpleStringify(setting)}, message: ${simpleStringify(message)}.`);
     const mediaLibrary = await modulesManager.getMediaLibrary();
