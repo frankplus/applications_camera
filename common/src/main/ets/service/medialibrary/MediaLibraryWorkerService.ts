@@ -32,6 +32,7 @@ import lazy { getStates } from '../../redux';
 import RecorderWrap from '../../camera/childthread/modules/video/RecorderWrap';
 // import lazy { awareness } from '@kit.ServiceCollaborationKit';
 import lazy { LocationMessage, LocationType } from '../location/LocationMessage';
+import lazy { LOCATION_MESSAGE } from '../../camera/childthread/CameraTaskHandler';
 import MediaLibraryOperation from './MediaLibraryOperation';
 import { DateTimeUtil } from '../../utils/LazyImportUtil';
 import {
@@ -239,6 +240,13 @@ export default class MediaLibraryWorkerService {
       if (cameraShotKey) {
         mediaRequest.setCameraShotKey(cameraShotKey);
         HiLog.i(TAG, `${captureTag} setCameraShotKey end.`);
+      }
+      // The location the camera has now (cleared when geotagging is off or
+      // the app has no location permission); the camera host does not
+      // always write it into the EXIF data.
+      const geoLocation = LOCATION_MESSAGE.location;
+      if (geoLocation) {
+        mediaRequest.setLocation(geoLocation.longitude, geoLocation.latitude);
       }
       let burstKey = this.getBurstKey(deferPhotoAsset);
       // todo RPX 暂时屏蔽连拍水印滤镜，依赖媒体库需求SR20240604727711
